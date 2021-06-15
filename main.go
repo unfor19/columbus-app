@@ -2,8 +2,10 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"net"
+	"net/http"
 	"os"
 	"regexp"
 	"strings"
@@ -48,10 +50,37 @@ func getCidr(cidrType string, ipAddress string) string {
 	}
 }
 
+// Source: https://golangcode.com/download-a-file-from-a-url/
+// DownloadFile will download a url to a local file. It's efficient because it will
+// write as it downloads and not load the whole file into memory.
+func DownloadFile(filepath string, url string) error {
+	log.Println("Downloading the file:", url)
+	log.Println("Filepath:", filepath)
+	// Get the data
+	resp, err := http.Get(url)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	// Create the file
+	out, err := os.Create(filepath)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	// Write the body to file
+	_, err = io.Copy(out, resp.Body)
+	return err
+}
+
 func main() {
 	// TODO: set as env var
 	// awsRegion := "eu-west-1"
 	requestUrl := "https://dev.sokker.info"
+	awsIpRangesFilePath := ".ip-ranges.json"
+	awsIpRangesUrl := "https://ip-ranges.amazonaws.com/ip-ranges.json"
 
 	domainName := getDomainName(requestUrl)
 	log.Println("Request Domain Name:", domainName)
@@ -60,6 +89,11 @@ func main() {
 	log.Println("Target IP Address:", targetIpAddress)
 	targetCidrA := getCidr("A", string(targetIpAddress.String()))
 	log.Println("Target Cidr A:", targetCidrA)
+	err := DownloadFile(awsIpRangesFilePath, awsIpRangesUrl)
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.Println("Downloaded complete")
 	os.Exit(0)
 
 	// Using the SDK's default configuration, loading additional config

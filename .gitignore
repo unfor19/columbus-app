@@ -1,2 +1,6 @@
 .*
 !.gitignore
+
+# artifacts
+columbus-app
+ip-ranges.json
