@@ -1,8 +1,10 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
@@ -12,6 +14,19 @@ import (
 
 	"github.com/miekg/dns"
 )
+
+type AwsIpRangesPrefix struct {
+	IpPrefix           string `json:"ip_prefix"`
+	Region             string `json:"region"`
+	Service            string `json:"service"`
+	NetworkBorderGroup string `json:"network_border_group"`
+}
+
+type AwsIpRanges struct {
+	SyncToken  string              `json:"syncToken"`
+	CreateDate string              `json:"createDate"`
+	Prefixes   []AwsIpRangesPrefix `json:"prefixes"`
+}
 
 func getDomainName(requestUrl string) string {
 	httpRegex := regexp.MustCompile(`^http.*:\/\/`)
@@ -75,6 +90,23 @@ func DownloadFile(filepath string, url string) error {
 	return err
 }
 
+func parseAwsIpRangesFile(filePath string) AwsIpRanges {
+
+	file, _ := ioutil.ReadFile(filePath)
+
+	data := AwsIpRanges{}
+
+	_ = json.Unmarshal([]byte(file), &data)
+
+	// for i := 0; i < len(data.Prefixes); i++ {
+	// 	fmt.Println("Ip Prefix:", data.Prefixes[i].IpPrefix)
+	// 	fmt.Println("Region:", data.Prefixes[i].Region)
+	// 	fmt.Println("Service:", data.Prefixes[i].Service)
+	// }
+
+	return data
+}
+
 func main() {
 	// TODO: set as env var
 	// awsRegion := "eu-west-1"
@@ -94,6 +126,8 @@ func main() {
 		log.Fatal(err)
 	}
 	log.Println("Downloaded complete")
+	awsIpRanges := parseAwsIpRangesFile(awsIpRangesFilePath)
+	log.Println(awsIpRanges.Prefixes[0].IpPrefix)
 	os.Exit(0)
 
 	// Using the SDK's default configuration, loading additional config
