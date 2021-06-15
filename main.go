@@ -2,14 +2,33 @@ package main
 
 import (
 	"fmt"
+	"log"
+	"net"
 	"os"
 	"regexp"
+
+	"github.com/miekg/dns"
 )
 
 func getDomainName(requestUrl string) string {
-	httpRegex := regexp.MustCompile(`http.*:\/\/`)
+	httpRegex := regexp.MustCompile(`^http.*:\/\/`)
 	domainName := httpRegex.ReplaceAllString(requestUrl, "")
 	return domainName
+}
+
+func getIPAddress(domainName string, dnsServer string) net.IP {
+	m1 := new(dns.Msg)
+	m1.Id = dns.Id()
+	m1.RecursionDesired = true
+	m1.Question = make([]dns.Question, 1)
+	m1.Question[0] = dns.Question{fmt.Sprintf(`%s.`, domainName), dns.TypeA, dns.ClassINET}
+	c := new(dns.Client)
+	in, _, _ := c.Exchange(m1, dnsServer)
+	if t, ok := in.Answer[0].(*dns.A); ok {
+		return t.A
+	} else {
+		return nil
+	}
 }
 
 func main() {
@@ -18,8 +37,10 @@ func main() {
 	requestUrl := "https://dev.sokker.info"
 
 	domainName := getDomainName(requestUrl)
-	fmt.Println(domainName)
-
+	log.Println("Request Domain Name:", domainName)
+	dnsServer := "8.8.8.8:53"
+	ipAddress := getIPAddress(domainName, dnsServer)
+	log.Println("Target IP Address:", ipAddress)
 	os.Exit(0)
 
 	// Using the SDK's default configuration, loading additional config
