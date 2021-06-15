@@ -6,6 +6,7 @@ import (
 	"net"
 	"os"
 	"regexp"
+	"strings"
 
 	"github.com/miekg/dns"
 )
@@ -16,7 +17,7 @@ func getDomainName(requestUrl string) string {
 	return domainName
 }
 
-func getIPAddress(domainName string, dnsServer string) net.IP {
+func getTargetIPAddress(domainName string, dnsServer string) net.IP {
 	m1 := new(dns.Msg)
 	m1.Id = dns.Id()
 	m1.RecursionDesired = true
@@ -31,6 +32,22 @@ func getIPAddress(domainName string, dnsServer string) net.IP {
 	}
 }
 
+func getCidr(cidrType string, ipAddress string) string {
+	cidrs := strings.Split(ipAddress, ".")
+	switch d := cidrType; d {
+	case "A":
+		return cidrs[0]
+	case "B":
+		return cidrs[1]
+	case "C":
+		return cidrs[2]
+	case "D":
+		return cidrs[3]
+	default:
+		return ""
+	}
+}
+
 func main() {
 	// TODO: set as env var
 	// awsRegion := "eu-west-1"
@@ -39,8 +56,10 @@ func main() {
 	domainName := getDomainName(requestUrl)
 	log.Println("Request Domain Name:", domainName)
 	dnsServer := "8.8.8.8:53"
-	ipAddress := getIPAddress(domainName, dnsServer)
-	log.Println("Target IP Address:", ipAddress)
+	targetIpAddress := getTargetIPAddress(domainName, dnsServer)
+	log.Println("Target IP Address:", targetIpAddress)
+	targetCidrA := getCidr("A", string(targetIpAddress.String()))
+	log.Println("Target Cidr A:", targetCidrA)
 	os.Exit(0)
 
 	// Using the SDK's default configuration, loading additional config
