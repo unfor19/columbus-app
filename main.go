@@ -150,6 +150,25 @@ type CloudFrontOrigin struct {
 	originPath string
 }
 
+func (o CloudFrontOrigin) getOriginUrlResponse() http.Response {
+	if strings.ContainsAny(o.originType, "s3") {
+		resp, err := http.Get("http://" + o.originUrl)
+		if err != nil {
+			log.Println(err)
+		}
+		return *resp
+	}
+	return http.Response{}
+}
+
+func getRequestUrlResponse(u string) http.Response {
+	resp, err := http.Get(u)
+	if err != nil {
+		log.Println(err)
+	}
+	return *resp
+}
+
 func getAwsCloudfrontOrigins(distribution types.DistributionSummary) []CloudFrontOrigin {
 	var origins []CloudFrontOrigin
 	for _, origin := range distribution.Origins.Items {
@@ -239,13 +258,23 @@ func main() {
 		log.Fatalf("unable to load SDK config, %v", err)
 	}
 
+	// Handle AWS CloudFront Distributions and their Origins
 	awsCloudfrontDistributions := listCloudfrontDistributions(cfg)
-	// requestIndexEtag := getRequestIndexEtag(requestUrl)
-	// log.Println("Request ETag:", requestIndexEtag)
 	targetAwsDistribution, targetOrigins := getTargetAwsCloudfrontDistribution(awsCloudfrontDistributions, domainName)
 	log.Println("Target CloudFront Distribution:", *targetAwsDistribution.Id)
 	for _, origin := range targetOrigins {
-		log.Println(origin.originName)
-		log.Println(origin.originUrl)
+		log.Println(origin.originName, origin.originUrl)
+		originUrlResponse := origin.getOriginUrlResponse()
+		log.Println(originUrlResponse.StatusCode, originUrlResponse.Header)
+	}
+
+	// Handle requestUrl
+	requestUrlResponse := getRequestUrlResponse(requestUrl)
+	log.Println(requestUrlResponse.StatusCode, requestUrlResponse.Header)
+	if requestUrlResponse.Header.Get("Server") == "AmazonS3" {
+		requestUrlResponseEtag := strings.ReplaceAll(requestUrlResponse.Header.Get("ETag"), "\"", "")
+		if requestUrlResponseEtag != "" {
+			log.Println("Request Url Response ETag:", requestUrlResponseEtag)
+		}
 	}
 }
