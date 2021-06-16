@@ -212,19 +212,6 @@ func getTargetAwsCloudfrontDistribution(distributions []types.DistributionSummar
 	return types.DistributionSummary{}, nil
 }
 
-// func getRequestIndexEtag(requestUrl string) string {
-// 	// client := &http.Client{}
-// 	resp, err := http.Get(requestUrl)
-// 	if err != nil {
-// 		log.Fatalln(err)
-// 	}
-// 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-// 		return strings.ReplaceAll(resp.Header.Get("ETag"), "\"", "")
-// 	} else {
-// 		return ""
-// 	}
-// }
-
 func main() {
 	// TODO: set as env var
 	awsRegion := "eu-west-1"
