@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -12,6 +13,10 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/cloudfront"
+	"github.com/aws/aws-sdk-go-v2/service/cloudfront/types"
 	"github.com/miekg/dns"
 )
 
@@ -121,9 +126,55 @@ func getTargetAwsService(ip string, awsIpRanges AwsIpRanges) string {
 	return ""
 }
 
+func listCloudfrontDistributions(cfg aws.Config) []types.DistributionSummary {
+	svc := cloudfront.NewFromConfig(cfg)
+	isTruncated := true
+	nextMarker := aws.String("")
+	params := &cloudfront.ListDistributionsInput{
+		Marker:   nextMarker,
+		MaxItems: aws.Int32(10),
+	}
+	var distributions []types.DistributionSummary
+	for isTruncated == true {
+		resp, err := svc.ListDistributions(context.TODO(), params)
+		if err != nil {
+			log.Fatalln("Failed to list for the first time:", err)
+		}
+
+		if *resp.DistributionList.IsTruncated {
+			params.Marker = resp.DistributionList.NextMarker
+			isTruncated = *resp.DistributionList.IsTruncated
+		} else {
+			isTruncated = false
+		}
+		// TODO: Test more than 10 distributions
+		distributions = append(distributions, *&resp.DistributionList.Items...)
+	}
+	return distributions
+}
+
+func getTargetAwsCloudfrontDistribution(distributions []types.DistributionSummary, domainName string) types.DistributionSummary {
+	for _, distribution := range distributions {
+		if *distribution.DomainName == domainName {
+			// Try with CNAME
+			log.Println("Found by CNAME:", *distribution.DomainName)
+			return distribution
+		} else {
+			// Search in origins
+			for _, origin := range distribution.Origins.Items {
+				if strings.HasPrefix(*origin.DomainName, domainName) {
+					log.Println("Found by Origin:", *origin.DomainName)
+					return distribution
+				}
+			}
+		}
+	}
+	return types.DistributionSummary{}
+}
+
 func main() {
 	// TODO: set as env var
-	// awsRegion := "eu-west-1"
+	awsRegion := "eu-west-1"
 	requestUrl := "https://dev.sokker.info"
 	awsIpRangesFilePath := ".ip-ranges.json"
 	awsIpRangesUrl := "https://ip-ranges.amazonaws.com/ip-ranges.json"
@@ -144,61 +195,17 @@ func main() {
 	targetAwsService := getTargetAwsService(targetIpAddress.String(), awsIpRanges)
 	log.Println("Target AWS Service:", targetAwsService)
 
-	os.Exit(0)
-
 	// Using the SDK's default configuration, loading additional config
 	// and credentials values from the environment variables, shared
 	// credentials, and shared configuration files
-	// 	cfg, err := config.LoadDefaultConfig(context.TODO(),
-	// 		config.WithRegion(awsRegion),
-	// 	)
-	// 	if err != nil {
-	// 		log.Fatalf("unable to load SDK config, %v", err)
-	// 	}
+	cfg, err := config.LoadDefaultConfig(context.TODO(),
+		config.WithRegion(awsRegion),
+	)
+	if err != nil {
+		log.Fatalf("unable to load SDK config, %v", err)
+	}
 
-	// 	// Variables that will be used for querying
-	// 	tagKey := aws.String("APP_NAME")
-	// 	tagValues := []string{
-	// 		"api-group",
-	// 	}
-
-	// 	// Define a tagFilter
-	// 	tagFilter := types.TagFilter{}
-	// 	tagFilter.Key = tagKey
-	// 	tagFilter.Values = tagValues
-
-	// 	// Using the Config value, create the Resource Groups Tagging API client
-	// 	svc := resourcegroupstaggingapi.NewFromConfig(cfg)
-	// 	params := &resourcegroupstaggingapi.GetResourcesInput{
-	// 		TagFilters: []types.TagFilter{
-	// 			// {Key: aws.String("APP_NAME"), Values: []string{"group-api"}}, // Inline values
-	// 			// {Key: tagKey, Values: tagValues}, // Variables references
-	// 			tagFilter, // Variable reference to an object
-	// 		},
-	// 	}
-
-	// 	resp, err := svc.GetResources(context.TODO(), params)
-	// 	// Build the request with its input parameters
-	// 	if err != nil {
-	// 		log.Fatalf("failed to list resources, %v", err)
-	// 	}
-
-	// 	// GetResources
-	// 	// Returns: GetResourcesOutput { PaginationToken *string `type:"string"` , ResourceTagMappingList []*ResourceTagMapping `type:"list"` }
-	// 	// Docs: https://docs.aws.amazon.com/sdk-for-go/api/service/resourcegroupstaggingapi/#GetResourcesOutput
-	// 	/*
-	// 		The syntax "for _, res" means we ignore the first argument of the response, in this case, ignoring PaginationToken
-	// 		You should replace "_" with "pgToken" to get PaginationToken in a variable.
-	// 	*/
-	// 	for _, res := range resp.ResourceTagMappingList {
-	// 		fmt.Println("      Pointer address:", res.ResourceARN)
-	// 		fmt.Println(" Value behind pointer:", *res.ResourceARN)
-	// 		fmt.Println("                Value:", aws.ToString(res.ResourceARN))
-	// 		fmt.Println()
-	// 	}
-
-	// 	// Use value
-	// 	random_item_index := rand.Intn(len(resp.ResourceTagMappingList))
-	// 	s := "      Random Resource: " + *resp.ResourceTagMappingList[random_item_index].ResourceARN
-	// 	fmt.Println(s)
+	awsCloudfrontDistributions := listCloudfrontDistributions(cfg)
+	targetAwsDistribution := getTargetAwsCloudfrontDistribution(awsCloudfrontDistributions, domainName)
+	log.Println("Target CloudFront Distribution:", *targetAwsDistribution.Id)
 }
