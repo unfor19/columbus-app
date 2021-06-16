@@ -107,6 +107,20 @@ func parseAwsIpRangesFile(filePath string) AwsIpRanges {
 	return data
 }
 
+func getTargetAwsService(ip string, awsIpRanges AwsIpRanges) string {
+	parsedIp := net.ParseIP(ip)
+	if parsedIp == nil {
+		log.Fatalln("Failed to parse IP:", ip)
+	}
+	for _, cidr := range awsIpRanges.Prefixes {
+		_, parsedCidr, _ := net.ParseCIDR(cidr.IpPrefix)
+		if cidr.Service != "AMAZON" && parsedCidr.Contains(parsedIp) {
+			return cidr.Service
+		}
+	}
+	return ""
+}
+
 func main() {
 	// TODO: set as env var
 	// awsRegion := "eu-west-1"
@@ -127,7 +141,9 @@ func main() {
 	}
 	log.Println("Downloaded complete")
 	awsIpRanges := parseAwsIpRangesFile(awsIpRangesFilePath)
-	log.Println(awsIpRanges.Prefixes[0].IpPrefix)
+	targetAwsService := getTargetAwsService(targetIpAddress.String(), awsIpRanges)
+	log.Println("Target AWS Service:", targetAwsService)
+
 	os.Exit(0)
 
 	// Using the SDK's default configuration, loading additional config
