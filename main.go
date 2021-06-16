@@ -96,19 +96,9 @@ func DownloadFile(filepath string, url string) error {
 }
 
 func parseAwsIpRangesFile(filePath string) AwsIpRanges {
-
 	file, _ := ioutil.ReadFile(filePath)
-
 	data := AwsIpRanges{}
-
 	_ = json.Unmarshal([]byte(file), &data)
-
-	// for i := 0; i < len(data.Prefixes); i++ {
-	// 	fmt.Println("Ip Prefix:", data.Prefixes[i].IpPrefix)
-	// 	fmt.Println("Region:", data.Prefixes[i].Region)
-	// 	fmt.Println("Service:", data.Prefixes[i].Service)
-	// }
-
 	return data
 }
 
@@ -162,10 +152,16 @@ func getTargetAwsCloudfrontDistribution(distributions []types.DistributionSummar
 		} else {
 			// Search in origins
 			for _, origin := range distribution.Origins.Items {
-				if strings.HasPrefix(*origin.DomainName, domainName) {
-					log.Println("Found by Origin:", *origin.DomainName)
-					return distribution
+				// TODO: Handle multiple origins
+				if origin.S3OriginConfig != nil {
+					s3BucketName := strings.Split(*origin.DomainName, ".s3.")[0]
+					log.Println("Target Origin is S3 Bucket:", s3BucketName)
+				} else if strings.Contains(aws.ToString(origin.DomainName), "s3-website") {
+					log.Println("Target Origin is S3 Website:", *origin.DomainName)
+				} else if strings.Contains(aws.ToString(origin.DomainName), "execute-api") {
+					log.Println("Target Origin is API Gateway type REST:", *origin.DomainName)
 				}
+				return distribution
 			}
 		}
 	}
