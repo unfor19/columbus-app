@@ -143,30 +143,68 @@ func listCloudfrontDistributions(cfg aws.Config) []types.DistributionSummary {
 	return distributions
 }
 
-func getTargetAwsCloudfrontDistribution(distributions []types.DistributionSummary, domainName string) types.DistributionSummary {
+type CloudFrontOrigin struct {
+	originType string
+	originName string
+	originUrl  string
+	originPath string
+}
+
+func getAwsCloudfrontOrigins(distribution types.DistributionSummary) []CloudFrontOrigin {
+	var origins []CloudFrontOrigin
+	for _, origin := range distribution.Origins.Items {
+		var o CloudFrontOrigin
+		o.originPath = *origin.OriginPath
+		if origin.S3OriginConfig != nil {
+			s3BucketName := strings.Split(*origin.DomainName, ".s3.")[0]
+			log.Println("Target Origin is S3 Bucket:", s3BucketName)
+			o.originType = "s3-bucket"
+			o.originName = s3BucketName
+			o.originUrl = *origin.DomainName
+			origins = append(origins, o)
+		} else if strings.Contains(aws.ToString(origin.DomainName), "s3-website") {
+			log.Println("Target Origin is S3 Website:", *origin.DomainName)
+			o.originType = "s3-website"
+			s3BucketName := strings.Split(*origin.DomainName, ".s3-website.")[0]
+			o.originName = s3BucketName
+			o.originUrl = *origin.DomainName
+			origins = append(origins, o)
+		}
+		//  else if strings.Contains(aws.ToString(origin.DomainName), "execute-api") {
+		// 	log.Println("Target Origin is API Gateway type REST:", *origin.DomainName)
+		// 	originTypes = append(originTypes, "apigw-rest")
+		// }
+	}
+	return origins
+}
+
+func getTargetAwsCloudfrontDistribution(distributions []types.DistributionSummary, domainName string) (types.DistributionSummary, []CloudFrontOrigin) {
+	// TODO: Handle target origin and multiple target origins
 	for _, distribution := range distributions {
 		if *distribution.DomainName == domainName {
 			// Try with CNAME
 			log.Println("Found by CNAME:", *distribution.DomainName)
-			return distribution
+			return distribution, getAwsCloudfrontOrigins(distribution)
 		} else {
-			// Search in origins
-			for _, origin := range distribution.Origins.Items {
-				// TODO: Handle multiple origins
-				if origin.S3OriginConfig != nil {
-					s3BucketName := strings.Split(*origin.DomainName, ".s3.")[0]
-					log.Println("Target Origin is S3 Bucket:", s3BucketName)
-				} else if strings.Contains(aws.ToString(origin.DomainName), "s3-website") {
-					log.Println("Target Origin is S3 Website:", *origin.DomainName)
-				} else if strings.Contains(aws.ToString(origin.DomainName), "execute-api") {
-					log.Println("Target Origin is API Gateway type REST:", *origin.DomainName)
-				}
-				return distribution
-			}
+			// Search by origins
+			return distribution, getAwsCloudfrontOrigins(distribution)
 		}
 	}
-	return types.DistributionSummary{}
+	return types.DistributionSummary{}, nil
 }
+
+// func getRequestIndexEtag(requestUrl string) string {
+// 	// client := &http.Client{}
+// 	resp, err := http.Get(requestUrl)
+// 	if err != nil {
+// 		log.Fatalln(err)
+// 	}
+// 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+// 		return strings.ReplaceAll(resp.Header.Get("ETag"), "\"", "")
+// 	} else {
+// 		return ""
+// 	}
+// }
 
 func main() {
 	// TODO: set as env var
@@ -202,6 +240,12 @@ func main() {
 	}
 
 	awsCloudfrontDistributions := listCloudfrontDistributions(cfg)
-	targetAwsDistribution := getTargetAwsCloudfrontDistribution(awsCloudfrontDistributions, domainName)
+	// requestIndexEtag := getRequestIndexEtag(requestUrl)
+	// log.Println("Request ETag:", requestIndexEtag)
+	targetAwsDistribution, targetOrigins := getTargetAwsCloudfrontDistribution(awsCloudfrontDistributions, domainName)
 	log.Println("Target CloudFront Distribution:", *targetAwsDistribution.Id)
+	for _, origin := range targetOrigins {
+		log.Println(origin.originName)
+		log.Println(origin.originUrl)
+	}
 }
