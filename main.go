@@ -144,9 +144,9 @@ type CloudFrontOrigin struct {
 	originPath                 string
 	originIndexETag            string
 	originBucketPolicy         s3.GetBucketPolicyOutput
-	originBucketPolicyIsPublic *bool
-	originResourceExists       *bool
-	originIsWebsite            *bool
+	originBucketPolicyIsPublic bool
+	originResourceExists       bool
+	originIsWebsite            bool
 }
 
 func (o CloudFrontOrigin) getOriginUrlResponse() http.Response {
@@ -160,16 +160,17 @@ func (o CloudFrontOrigin) getOriginUrlResponse() http.Response {
 	return http.Response{}
 }
 
-func s3BucketExists(bucketName string) (bool, error) {
+func s3BucketExists(bucketName string) bool {
 	svc := s3.NewFromConfig(cfg)
 	params := s3.HeadBucketInput{
 		Bucket: &bucketName,
 	}
 	_, err := svc.HeadBucket(context.TODO(), &params)
 	if err != nil {
-		return false, err
+		// log.Println(err)
+		return false
 	}
-	return true, nil
+	return true
 }
 
 func (o *CloudFrontOrigin) setOriginPolicy() {
@@ -201,7 +202,7 @@ func (o *CloudFrontOrigin) s3OriginIsPublic() {
 		isPublic = resp.PolicyStatus.IsPublic
 	}
 
-	o.originBucketPolicyIsPublic = &isPublic
+	o.originBucketPolicyIsPublic = isPublic
 }
 
 func (o *CloudFrontOrigin) setIsBucketWebsite() {
@@ -212,13 +213,13 @@ func (o *CloudFrontOrigin) setIsBucketWebsite() {
 	}
 	resp, err := svc.GetBucketWebsite(context.TODO(), &params)
 	if err != nil {
-		log.Println(err)
+		// log.Println(err)
 		isWebsite = false
 	} else {
 		isWebsite = resp.ResultMetadata.Has("IndexDocument")
 	}
 
-	o.originIsWebsite = &isWebsite
+	o.originIsWebsite = isWebsite
 }
 
 func (o *CloudFrontOrigin) setIndexETag(indexFilePath string) {
@@ -239,10 +240,6 @@ func (o *CloudFrontOrigin) setIndexETag(indexFilePath string) {
 	o.originIndexETag = eTag
 }
 
-func (o *CloudFrontOrigin) setResourceExists(b bool) {
-	o.originResourceExists = &b
-}
-
 func getRequestUrlResponse(u string) http.Response {
 	resp, err := http.Get(u)
 	if err != nil {
@@ -257,18 +254,17 @@ func getAwsCloudfrontOrigins(distribution types.DistributionSummary) []CloudFron
 		o := CloudFrontOrigin{}
 		o.originPath = *origin.OriginPath
 		if origin.S3OriginConfig != nil {
-			s3BucketName := strings.Split(*origin.DomainName, ".s3.")[0]
+			s3BucketName := strings.Split(*origin.DomainName, fmt.Sprintf(".s3-%s.", cfg.Region))[0]
 			log.Println("Target Origin is S3 Bucket:", s3BucketName)
 			o.originType = "s3-bucket"
 			o.originName = s3BucketName
 			o.originUrl = *origin.DomainName
-			_, err := s3BucketExists(o.originName)
-			if err == nil {
+			if s3BucketExists(o.originName) {
 				o.setOriginPolicy()
 				o.setIndexETag(indexFilePath)
 				o.s3OriginIsPublic()
 				o.setIsBucketWebsite()
-				o.setResourceExists(true)
+				o.originResourceExists = true
 			}
 			origins = append(origins, o)
 		} else if strings.Contains(aws.ToString(origin.DomainName), "s3-website") {
@@ -277,13 +273,12 @@ func getAwsCloudfrontOrigins(distribution types.DistributionSummary) []CloudFron
 			s3BucketName := strings.Split(*origin.DomainName, ".s3-website.")[0]
 			o.originName = s3BucketName
 			o.originUrl = *origin.DomainName
-			_, err := s3BucketExists(o.originName)
-			if err == nil {
+			if s3BucketExists(o.originName) {
 				o.setOriginPolicy()
 				o.setIndexETag(indexFilePath)
 				o.s3OriginIsPublic()
 				o.setIsBucketWebsite()
-				o.setResourceExists(true)
+				o.originResourceExists = true
 			}
 			origins = append(origins, o)
 		}
@@ -309,7 +304,7 @@ func getTargetAwsCloudfrontDistribution(distributions []types.DistributionSummar
 		origins := getAwsCloudfrontOrigins(distribution)
 		for _, o := range origins {
 			if strings.HasPrefix(o.originUrl, domainName) {
-				log.Println("Found by Origin:", *distribution.DomainName)
+				log.Println("Found CloudFront Distribution,", *distribution.Id, *distribution.DomainName, "by Origin", o.originName)
 				return distribution, getAwsCloudfrontOrigins(distribution)
 			}
 		}
@@ -389,27 +384,10 @@ func main() {
 			log.Println(i, "Origin ETag:", origin.originIndexETag)
 		}
 		if strings.HasPrefix(origin.originType, "s3-") {
-			if origin.originResourceExists == nil {
-				log.Println(i, "Is Resource Exists:", false)
-			} else {
-				log.Println(i, "Is Resource Exists:", true)
-			}
-			if origin.originIsWebsite == nil {
-				log.Println(i, "Is Website:", false)
-			} else {
-				log.Println(i, "Is Website:", true)
-			}
-			if origin.originBucketPolicyIsPublic == nil {
-				log.Println(i, "Is Bucket Public:", false)
-			} else {
-				log.Println(i, "Is Bucket Public:", true)
-			}
-			if origin.originBucketPolicy.Policy == nil {
-				log.Println(i, "Origin Bucket Policy:", nil)
-			} else {
-				log.Println(i, "Origin Bucket Policy:", origin.originBucketPolicy)
-			}
-
+			log.Println(i, "Is Resource Exists:", origin.originResourceExists)
+			log.Println(i, "Is Website:", origin.originIsWebsite)
+			log.Println(i, "Is Bucket Public:", origin.originBucketPolicyIsPublic)
+			log.Println(i, "Origin Bucket Policy:", *origin.originBucketPolicy.Policy)
 		}
 	}
 }
