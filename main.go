@@ -61,22 +61,6 @@ func getTargetIPAddress(domainName string, dnsServer string) net.IP {
 	}
 }
 
-func getCidr(cidrType string, ipAddress string) string {
-	cidrs := strings.Split(ipAddress, ".")
-	switch d := cidrType; d {
-	case "A":
-		return cidrs[0]
-	case "B":
-		return cidrs[1]
-	case "C":
-		return cidrs[2]
-	case "D":
-		return cidrs[3]
-	default:
-		return ""
-	}
-}
-
 // Source: https://golangcode.com/download-a-file-from-a-url/
 // DownloadFile will download a url to a local file. It's efficient because it will
 // write as it downloads and not load the whole file into memory.
@@ -248,8 +232,6 @@ func main() {
 	dnsServer := "8.8.8.8:53"
 	targetIpAddress := getTargetIPAddress(domainName, dnsServer)
 	log.Println("Target IP Address:", targetIpAddress)
-	targetCidrA := getCidr("A", string(targetIpAddress.String()))
-	log.Println("Target Cidr A:", targetCidrA)
 	err := DownloadFile(awsIpRangesFilePath, awsIpRangesUrl)
 	if err != nil {
 		log.Fatal(err)
