@@ -1,5 +1,10 @@
 # columbus-app
 
+## Requirements
+
+- AWS Account and [User with AdministratorAccess](https://docs.aws.amazon.com/IAM/latest/UserGuide/getting-started_create-admin-group.html)
+- A public endpoint that its resources are hosted in AWS, I'm using https://dev.sokker.info for testing purposes. Please note that you **must** use your own endpoint, otherwise the whole process in AWS will fail immediately
+
 ## Supported Services
 
 1. AWS Route53
@@ -29,7 +34,7 @@ Services that will be supported in the future
 
 ## Contributing
 
-1. Download and install go
+1. Download and install [go 1.16+](https://golang.org/doc/install)
 1. Add this to your `.bashrc` file and reload your terminal
     ```bash
     # GO
