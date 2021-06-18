@@ -9,6 +9,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"regexp"
 	"strings"
@@ -17,6 +18,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/cloudfront"
 	"github.com/aws/aws-sdk-go-v2/service/cloudfront/types"
+	"github.com/aws/aws-sdk-go-v2/service/route53"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/miekg/dns"
 )
@@ -313,6 +315,47 @@ func getTargetAwsCloudfrontDistribution(distributions []types.DistributionSummar
 	return types.DistributionSummary{}, nil
 }
 
+func getRegisteredDomainName(requestUrl string) string {
+	u, err := url.Parse(requestUrl)
+	if err != nil {
+		log.Fatal(err)
+	}
+	parts := strings.Split(u.Hostname(), ".")
+	domain := parts[len(parts)-2] + "." + parts[len(parts)-1]
+	return domain
+}
+
+func getRoute53Record(requestUrl string, domainName string) string {
+	registeredDomainName := getRegisteredDomainName(requestUrl)
+	params := route53.ListHostedZonesByNameInput{
+		DNSName: &registeredDomainName,
+	}
+	svc := route53.NewFromConfig(cfg)
+	resp, err := svc.ListHostedZonesByName(context.TODO(), &params)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	if strings.Contains(*resp.HostedZones[0].Name, registeredDomainName) {
+		hostedZoneId := resp.HostedZones[0].Id
+		params := route53.ListResourceRecordSetsInput{
+			HostedZoneId: hostedZoneId,
+		}
+		resp, err := svc.ListResourceRecordSets(context.TODO(), &params)
+		if err != nil {
+			log.Fatalln(err)
+		}
+
+		for _, r := range resp.ResourceRecordSets {
+			if fmt.Sprint(domainName, ".") == *r.Name {
+				return *r.Name
+			}
+		}
+	}
+
+	return "none"
+}
+
 func main() {
 	// TODO: set as env var
 	awsRegion := "eu-west-1"
@@ -334,6 +377,8 @@ func main() {
 	awsIpRangesUrl := "https://ip-ranges.amazonaws.com/ip-ranges.json"
 	domainName := getDomainName(requestUrl)
 	log.Println("Request Domain Name:", domainName)
+	registeredDomainName := getRegisteredDomainName(requestUrl)
+	log.Println("Registered Domain Name:", registeredDomainName)
 	targetIpAddress := getTargetIPAddress(domainName, dnsServer)
 	if targetIpAddress == nil {
 		log.Fatalln("Failed to resolve Target IP Address")
@@ -373,6 +418,11 @@ func main() {
 	awsCloudfrontDistributions := listCloudfrontDistributions()
 	targetAwsDistribution, targetOrigins := getTargetAwsCloudfrontDistribution(awsCloudfrontDistributions, domainName)
 	log.Println("Target CloudFront Distribution:", *targetAwsDistribution.Id)
+	if *targetAwsDistribution.WebACLId != "" {
+		log.Println("CloudFront Distribution WAF Id:", *targetAwsDistribution.WebACLId)
+	} else {
+		log.Println("CloudFront Distribution WAF Id:", "none")
+	}
 	log.Println("Target Distribution Status:", *targetAwsDistribution.Status)
 	for i, origin := range targetOrigins {
 		log.Println(i, "Origin Name:", origin.originName)
@@ -390,4 +440,6 @@ func main() {
 			log.Println(i, "Origin Bucket Policy:", *origin.originBucketPolicy.Policy)
 		}
 	}
+	route53Records := getRoute53Record(requestUrl, domainName)
+	log.Println("Route53 record:", route53Records)
 }
