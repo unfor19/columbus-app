@@ -17,8 +17,11 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/cloudfront"
 	"github.com/aws/aws-sdk-go-v2/service/cloudfront/types"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/miekg/dns"
 )
+
+var cfg aws.Config
 
 type AwsIpRangesPrefix struct {
 	IpPrefix           string `json:"ip_prefix"`
@@ -44,7 +47,11 @@ func getTargetIPAddress(domainName string, dnsServer string) net.IP {
 	m1.Id = dns.Id()
 	m1.RecursionDesired = true
 	m1.Question = make([]dns.Question, 1)
-	m1.Question[0] = dns.Question{fmt.Sprintf(`%s.`, domainName), dns.TypeA, dns.ClassINET}
+	m1.Question[0] = dns.Question{
+		Name:   fmt.Sprintf(`%s.`, domainName),
+		Qtype:  dns.TypeA,
+		Qclass: dns.ClassINET,
+	}
 	c := new(dns.Client)
 	in, _, _ := c.Exchange(m1, dnsServer)
 	if t, ok := in.Answer[0].(*dns.A); ok {
@@ -116,7 +123,7 @@ func getTargetAwsService(ip string, awsIpRanges AwsIpRanges) string {
 	return ""
 }
 
-func listCloudfrontDistributions(cfg aws.Config) []types.DistributionSummary {
+func listCloudfrontDistributions() []types.DistributionSummary {
 	svc := cloudfront.NewFromConfig(cfg)
 	isTruncated := true
 	nextMarker := aws.String("")
@@ -144,10 +151,11 @@ func listCloudfrontDistributions(cfg aws.Config) []types.DistributionSummary {
 }
 
 type CloudFrontOrigin struct {
-	originType string
-	originName string
-	originUrl  string
-	originPath string
+	originType      string
+	originName      string
+	originUrl       string
+	originPath      string
+	originIndexETag string
 }
 
 func (o CloudFrontOrigin) getOriginUrlResponse() http.Response {
@@ -159,6 +167,20 @@ func (o CloudFrontOrigin) getOriginUrlResponse() http.Response {
 		return *resp
 	}
 	return http.Response{}
+}
+
+func (o *CloudFrontOrigin) setIndexETag(indexFilePath string) {
+	svc := s3.NewFromConfig(cfg)
+	params := s3.HeadObjectInput{
+		Bucket: &o.originName,
+		Key:    &indexFilePath,
+	}
+	resp, err := svc.HeadObject(context.TODO(), &params)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	o.originIndexETag = aws.ToString(resp.ETag)
 }
 
 func getRequestUrlResponse(u string) http.Response {
@@ -180,6 +202,7 @@ func getAwsCloudfrontOrigins(distribution types.DistributionSummary) []CloudFron
 			o.originType = "s3-bucket"
 			o.originName = s3BucketName
 			o.originUrl = *origin.DomainName
+			o.setIndexETag("index.html")
 			origins = append(origins, o)
 		} else if strings.Contains(aws.ToString(origin.DomainName), "s3-website") {
 			log.Println("Target Origin is S3 Website:", *origin.DomainName)
@@ -187,6 +210,7 @@ func getAwsCloudfrontOrigins(distribution types.DistributionSummary) []CloudFron
 			s3BucketName := strings.Split(*origin.DomainName, ".s3-website.")[0]
 			o.originName = s3BucketName
 			o.originUrl = *origin.DomainName
+			o.setIndexETag("index.html")
 			origins = append(origins, o)
 		}
 		//  else if strings.Contains(aws.ToString(origin.DomainName), "execute-api") {
@@ -238,7 +262,7 @@ func main() {
 	// Using the SDK's default configuration, loading additional config
 	// and credentials values from the environment variables, shared
 	// credentials, and shared configuration files
-	cfg, err := config.LoadDefaultConfig(context.TODO(),
+	cfg, err = config.LoadDefaultConfig(context.TODO(),
 		config.WithRegion(awsRegion),
 	)
 	if err != nil {
@@ -246,13 +270,17 @@ func main() {
 	}
 
 	// Handle AWS CloudFront Distributions and their Origins
-	awsCloudfrontDistributions := listCloudfrontDistributions(cfg)
+	awsCloudfrontDistributions := listCloudfrontDistributions()
 	targetAwsDistribution, targetOrigins := getTargetAwsCloudfrontDistribution(awsCloudfrontDistributions, domainName)
 	log.Println("Target CloudFront Distribution:", *targetAwsDistribution.Id)
-	for _, origin := range targetOrigins {
-		log.Println(origin.originName, origin.originUrl)
+	for i, origin := range targetOrigins {
+		log.Println(i, "Origin Name:", origin.originName)
+		log.Println(i, "Origin Url:", origin.originUrl)
 		originUrlResponse := origin.getOriginUrlResponse()
-		log.Println(originUrlResponse.StatusCode, originUrlResponse.Header)
+		log.Println(i, originUrlResponse.StatusCode, originUrlResponse.Header)
+		if origin.originIndexETag != "" {
+			log.Println(i, "Origin ETag:", origin.originIndexETag)
+		}
 	}
 
 	// Handle requestUrl

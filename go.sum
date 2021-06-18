@@ -10,8 +10,14 @@ github.com/aws/aws-sdk-go-v2/internal/ini v1.0.0 h1:k7I9E6tyVWBo7H9ffpnxDWudtjau
 github.com/aws/aws-sdk-go-v2/internal/ini v1.0.0/go.mod h1:g3XMXuxvqSMUjnsXXp/960152w0wFS4CXVYgQaSVOHE=
 github.com/aws/aws-sdk-go-v2/service/cloudfront v1.5.2 h1:QzGzA1foO8v1Ca9ObEQ3Tb8x9NzTY6gncdvvaJtKdVw=
 github.com/aws/aws-sdk-go-v2/service/cloudfront v1.5.2/go.mod h1:TKry9ZHIe1aJ2Ji+HgZc5UgEStpdsFzk0jNKmwnHaEc=
+github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.1.0 h1:XwqxIO9LtNXznBbEMNGumtLN60k4nVqDpVwVWx3XU/o=
+github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.1.0/go.mod h1:zdjOOy0ojUn3iNELo6ycIHSMCp4xUbycSHfb8PnbbyM=
 github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.1.1 h1:l7pDLsmOGrnR8LT+3gIv8NlHpUhs7220E457KEC2UM0=
 github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.1.1/go.mod h1:2+ehJPkdIdl46VCj67Emz/EH2hpebHZtaLdzqg+sWOI=
+github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.4.0 h1:VacTNowcxS2WG9cmHbBi7nYq34xFSud7OYSkezf2VyQ=
+github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.4.0/go.mod h1:IpjxfORBAFfkMM0VEx5gPPnEy6WV4Hk0F/+zb/SUWyw=
+github.com/aws/aws-sdk-go-v2/service/s3 v1.10.0 h1:BPUiwgs2sTnu1pzBa2oblYzo0qXLfVPblb6QVqcZWkg=
+github.com/aws/aws-sdk-go-v2/service/s3 v1.10.0/go.mod h1:azwgEajHWHcobFQRqwHcwLv+m/aip/uZnuqpFm1MSZ4=
 github.com/aws/aws-sdk-go-v2/service/sso v1.2.1 h1:alpXc5UG7al7QnttHe/9hfvUfitV8r3w0onPpPkGzi0=
 github.com/aws/aws-sdk-go-v2/service/sso v1.2.1/go.mod h1:VimPFPltQ/920i1X0Sb0VJBROLIHkDg2MNP10D46OGs=
 github.com/aws/aws-sdk-go-v2/service/sts v1.4.1 h1:9Z00tExoaLutWVDmY6LyvIAcKjHetkbdmpRt4JN/FN0=
