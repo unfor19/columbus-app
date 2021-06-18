@@ -1,3 +1,6 @@
+deps:
+	go get
+
 build:
 	go build
 	@ls -lh "$(PWD)/columbus-app"
