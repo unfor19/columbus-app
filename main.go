@@ -229,7 +229,7 @@ func main() {
 
 	domainName := getDomainName(requestUrl)
 	log.Println("Request Domain Name:", domainName)
-	dnsServer := "8.8.8.8:53"
+	dnsServer := "8.8.8.8:53" // Using Google's DNS Server
 	targetIpAddress := getTargetIPAddress(domainName, dnsServer)
 	log.Println("Target IP Address:", targetIpAddress)
 	err := DownloadFile(awsIpRangesFilePath, awsIpRangesUrl)
