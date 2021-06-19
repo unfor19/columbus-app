@@ -385,9 +385,15 @@ func main() {
 	}
 
 	log.Println("Target IP Address:", targetIpAddress)
-	err := DownloadFile(awsIpRangesFilePath, awsIpRangesUrl)
-	if err != nil {
-		log.Fatal(err)
+	var err error
+	if _, err := os.Stat(awsIpRangesFilePath); os.IsNotExist(err) {
+		err = DownloadFile(awsIpRangesFilePath, awsIpRangesUrl)
+		if err != nil {
+			log.Fatal(err)
+		}
+	} else {
+		// Exists
+		log.Println("Found AWS ip-ranges.json, skipping download:", awsIpRangesFilePath)
 	}
 	awsIpRanges := parseAwsIpRangesFile(awsIpRangesFilePath)
 	targetAwsService := getTargetAwsService(targetIpAddress.String(), awsIpRanges)
@@ -419,9 +425,9 @@ func main() {
 	targetAwsDistribution, targetOrigins := getTargetAwsCloudfrontDistribution(awsCloudfrontDistributions, domainName)
 	log.Println("Target CloudFront Distribution:", *targetAwsDistribution.Id)
 	if *targetAwsDistribution.WebACLId != "" {
-		log.Println("CloudFront Distribution WAF Id:", *targetAwsDistribution.WebACLId)
+		log.Println("Target CloudFront Distribution WAF Id:", *targetAwsDistribution.WebACLId)
 	} else {
-		log.Println("CloudFront Distribution WAF Id:", "none")
+		log.Println("Target CloudFront Distribution WAF Id:", "none")
 	}
 	log.Println("Target Distribution Status:", *targetAwsDistribution.Status)
 	for i, origin := range targetOrigins {
