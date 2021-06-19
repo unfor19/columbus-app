@@ -5,6 +5,26 @@
 - AWS Account and [User with AdministratorAccess](https://docs.aws.amazon.com/IAM/latest/UserGuide/getting-started_create-admin-group.html)
 - A public endpoint that its resources are hosted in AWS, I'm using https://dev.sokker.info for testing purposes. Please note that you **must** use your own endpoint, otherwise the whole process in AWS will fail immediately
 
+## Quick Start
+
+1. Download the application from the [Releases page](https://github.com/unfor19/columbus-app/releases) > Assets > Relevant OS binary
+1. Set AWS Credentials and relevant environment variables
+   ```bash
+   # AWS Credentials Precedence
+   # 1. Environment Variables
+   # 2. Config/Profile
+
+   # Change this to your public endpoint URL
+   export COLUMBUS_REQUEST_URL="https://dev.sokker.info"
+   ``` 
+1. Run the application
+   ```bash
+   # Linux - Assuming you downloaded the relevant binary
+   chmod +x columbus-app_0.0.1rc1_linux_386
+   ./columbus-app_0.0.1rc1_linux_386
+   # application's output ...
+   ```
+
 ## Supported Services
 
 1. AWS Route53
