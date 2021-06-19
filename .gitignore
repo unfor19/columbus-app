@@ -4,4 +4,8 @@
 
 # artifacts
 columbus-app
+columbus-app_*
 ip-ranges.json
+*.zip
+*.tar.gz
+*.tgz
