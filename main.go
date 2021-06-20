@@ -27,6 +27,7 @@ import (
 var cfg aws.Config
 var dnsServer string
 var indexFilePath string
+var awsMapping AwsMapping
 
 type AwsIpRangesPrefix struct {
 	IpPrefix           string `json:"ip_prefix"`
@@ -39,6 +40,39 @@ type AwsIpRanges struct {
 	SyncToken  string              `json:"syncToken"`
 	CreateDate string              `json:"createDate"`
 	Prefixes   []AwsIpRangesPrefix `json:"prefixes"`
+}
+
+type AwsResource struct {
+	Arn          string
+	Id           string
+	Name         string
+	ResourceType string
+}
+
+type HttpHeader struct {
+	Name  string
+	Value string
+}
+
+type UrlResponse struct {
+	StatusCode int
+	Headers    []HttpHeader
+}
+
+type TargetAttributes struct {
+	DomainName      string
+	RegisteredName  string
+	TargetIpAddress string
+	TargetService   string
+	UrlResponse     UrlResponse
+	EtagResponse    string
+	Route53Record   string
+	WafId           string
+}
+
+type AwsMapping struct {
+	CloudFrontOrigins []CloudFrontOrigin
+	TargetDomain      TargetAttributes
 }
 
 func getDomainName(requestUrl string) string {
@@ -140,27 +174,59 @@ func listCloudfrontDistributions() []types.DistributionSummary {
 	return distributions
 }
 
+type Principal struct {
+	AWS string
+}
+
+type StatementEntry struct {
+	Sid       string
+	Effect    string
+	Action    string
+	Resource  string
+	Principal Principal
+}
+
+type PolicyDocument struct {
+	Version   string
+	Statement []StatementEntry
+	Id        string
+}
+
 type CloudFrontOrigin struct {
-	originType                 string
-	originName                 string
-	originUrl                  string
-	originPath                 string
-	originIndexETag            string
-	originBucketPolicy         s3.GetBucketPolicyOutput
-	originBucketPolicyIsPublic bool
-	originResourceExists       bool
-	originIsWebsite            bool
+	OriginType                 string
+	OriginName                 string
+	OriginUrl                  string
+	OriginPath                 string
+	OriginIndexETag            string
+	originBucketPolicy         string
+	OriginBucketPolicy         PolicyDocument
+	OriginBucketPolicyIsPublic bool
+	OriginResourceExists       bool
+	OriginIsWebsite            bool
+	OriginUrlResponse          UrlResponse
 }
 
 func (o CloudFrontOrigin) getOriginUrlResponse() http.Response {
-	if strings.ContainsAny(o.originType, "s3") {
-		resp, err := http.Get("http://" + o.originUrl)
+	if strings.ContainsAny(o.OriginType, "s3") {
+		resp, err := http.Get("http://" + o.OriginUrl)
 		if err != nil {
 			log.Println(err)
 		}
 		return *resp
 	}
 	return http.Response{}
+}
+
+func (o *CloudFrontOrigin) setOriginUrlResponse(resp http.Response) {
+	for name, values := range resp.Header {
+		for _, value := range values {
+			o.OriginUrlResponse.Headers = append(o.OriginUrlResponse.Headers, HttpHeader{
+				Name:  name,
+				Value: value,
+			})
+		}
+	}
+	o.OriginUrlResponse.StatusCode = resp.StatusCode
 }
 
 func s3BucketExists(bucketName string) bool {
@@ -170,7 +236,7 @@ func s3BucketExists(bucketName string) bool {
 	}
 	_, err := svc.HeadBucket(context.TODO(), &params)
 	if err != nil {
-		// log.Println(err)
+		log.Println(err)
 		return false
 	}
 	return true
@@ -179,23 +245,23 @@ func s3BucketExists(bucketName string) bool {
 func (o *CloudFrontOrigin) setOriginPolicy() {
 	svc := s3.NewFromConfig(cfg)
 	params := s3.GetBucketPolicyInput{
-		Bucket: &o.originName,
+		Bucket: &o.OriginName,
 	}
 	resp, err := svc.GetBucketPolicy(context.TODO(), &params)
 	if err != nil {
 		log.Println(err)
-		o.originBucketPolicy = s3.GetBucketPolicyOutput{}
+		o.originBucketPolicy = "none"
 		return
 	}
 
-	o.originBucketPolicy = *resp
+	o.originBucketPolicy = *resp.Policy
 }
 
 func (o *CloudFrontOrigin) s3OriginIsPublic() {
 	var isPublic bool
 	svc := s3.NewFromConfig(cfg)
 	params := s3.GetBucketPolicyStatusInput{
-		Bucket: &o.originName,
+		Bucket: &o.OriginName,
 	}
 	resp, err := svc.GetBucketPolicyStatus(context.TODO(), &params)
 	if err != nil {
@@ -205,14 +271,14 @@ func (o *CloudFrontOrigin) s3OriginIsPublic() {
 		isPublic = resp.PolicyStatus.IsPublic
 	}
 
-	o.originBucketPolicyIsPublic = isPublic
+	o.OriginBucketPolicyIsPublic = isPublic
 }
 
 func (o *CloudFrontOrigin) setIsBucketWebsite() {
 	var isWebsite bool
 	svc := s3.NewFromConfig(cfg)
 	params := s3.GetBucketWebsiteInput{
-		Bucket: &o.originName,
+		Bucket: &o.OriginName,
 	}
 	resp, err := svc.GetBucketWebsite(context.TODO(), &params)
 	if err != nil {
@@ -222,14 +288,14 @@ func (o *CloudFrontOrigin) setIsBucketWebsite() {
 		isWebsite = resp.ResultMetadata.Has("IndexDocument")
 	}
 
-	o.originIsWebsite = isWebsite
+	o.OriginIsWebsite = isWebsite
 }
 
 func (o *CloudFrontOrigin) setIndexETag(indexFilePath string) {
 	var eTag string
 	svc := s3.NewFromConfig(cfg)
 	params := s3.HeadObjectInput{
-		Bucket: &o.originName,
+		Bucket: &o.OriginName,
 		Key:    &indexFilePath,
 	}
 	resp, err := svc.HeadObject(context.TODO(), &params)
@@ -240,7 +306,7 @@ func (o *CloudFrontOrigin) setIndexETag(indexFilePath string) {
 		eTag = strings.ReplaceAll(aws.ToString(resp.ETag), "\"", "")
 	}
 
-	o.originIndexETag = eTag
+	o.OriginIndexETag = eTag
 }
 
 func getRequestUrlResponse(u string) http.Response {
@@ -255,33 +321,33 @@ func getAwsCloudfrontOrigins(distribution types.DistributionSummary) []CloudFron
 	var origins []CloudFrontOrigin
 	for _, origin := range distribution.Origins.Items {
 		o := CloudFrontOrigin{}
-		o.originPath = *origin.OriginPath
+		o.OriginPath = *origin.OriginPath
 		if origin.S3OriginConfig != nil {
-			s3BucketName := strings.Split(*origin.DomainName, fmt.Sprintf(".s3-%s.", cfg.Region))[0]
+			s3BucketName := strings.Split(*origin.DomainName, fmt.Sprintf(".s3.%s.", cfg.Region))[0]
 			log.Println("Target Origin is S3 Bucket:", s3BucketName)
-			o.originType = "s3-bucket"
-			o.originName = s3BucketName
-			o.originUrl = *origin.DomainName
-			if s3BucketExists(o.originName) {
+			o.OriginType = "s3-bucket"
+			o.OriginName = s3BucketName
+			o.OriginUrl = *origin.DomainName
+			if s3BucketExists(o.OriginName) {
 				o.setOriginPolicy()
 				o.setIndexETag(indexFilePath)
 				o.s3OriginIsPublic()
 				o.setIsBucketWebsite()
-				o.originResourceExists = true
+				o.OriginResourceExists = true
 			}
 			origins = append(origins, o)
 		} else if strings.Contains(aws.ToString(origin.DomainName), "s3-website") {
 			log.Println("Target Origin is S3 Website:", *origin.DomainName)
-			o.originType = "s3-website"
+			o.OriginType = "s3-website"
 			s3BucketName := strings.Split(*origin.DomainName, ".s3-website.")[0]
-			o.originName = s3BucketName
-			o.originUrl = *origin.DomainName
-			if s3BucketExists(o.originName) {
+			o.OriginName = s3BucketName
+			o.OriginUrl = *origin.DomainName
+			if s3BucketExists(o.OriginName) {
 				o.setOriginPolicy()
 				o.setIndexETag(indexFilePath)
 				o.s3OriginIsPublic()
 				o.setIsBucketWebsite()
-				o.originResourceExists = true
+				o.OriginResourceExists = true
 			}
 			origins = append(origins, o)
 		}
@@ -306,8 +372,8 @@ func getTargetAwsCloudfrontDistribution(distributions []types.DistributionSummar
 		// Search by origins
 		origins := getAwsCloudfrontOrigins(distribution)
 		for _, o := range origins {
-			if strings.HasPrefix(o.originUrl, domainName) {
-				log.Println("Found CloudFront Distribution,", *distribution.Id, *distribution.DomainName, "by Origin", o.originName)
+			if strings.HasPrefix(o.OriginUrl, domainName) {
+				log.Println("Found CloudFront Distribution,", *distribution.Id, *distribution.DomainName, "by Origin", o.OriginName)
 				return distribution, getAwsCloudfrontOrigins(distribution)
 			}
 		}
@@ -394,13 +460,16 @@ func do_pipeline(requestUrl string) string {
 	awsIpRangesFilePath := ".ip-ranges.json"
 	awsIpRangesUrl := "https://ip-ranges.amazonaws.com/ip-ranges.json"
 	domainName := getDomainName(requestUrl)
+	awsMapping.TargetDomain.DomainName = domainName
 	log.Println("Request Domain Name:", domainName)
 	registeredDomainName := getRegisteredDomainName(requestUrl)
+	awsMapping.TargetDomain.RegisteredName = registeredDomainName
 	log.Println("Registered Domain Name:", registeredDomainName)
 	targetIpAddress := getTargetIPAddress(domainName, dnsServer)
 	if targetIpAddress == nil {
 		log.Fatalln("Failed to resolve Target IP Address")
 	}
+	awsMapping.TargetDomain.TargetIpAddress = targetIpAddress.String()
 
 	log.Println("Target IP Address:", targetIpAddress)
 	var err error
@@ -415,16 +484,28 @@ func do_pipeline(requestUrl string) string {
 	}
 	awsIpRanges := parseAwsIpRangesFile(awsIpRangesFilePath)
 	targetAwsService := getTargetAwsService(targetIpAddress.String(), awsIpRanges)
+	awsMapping.TargetDomain.TargetService = targetAwsService
 	log.Println("Target AWS Service:", targetAwsService)
 
 	// Handle requestUrl
 	requestUrlResponse := getRequestUrlResponse(requestUrl)
 	log.Println("Target Url Response:")
+	awsMapping.TargetDomain.UrlResponse.StatusCode = requestUrlResponse.StatusCode
+
 	log.Println(requestUrlResponse.StatusCode, requestUrlResponse.Header)
+	for name, values := range requestUrlResponse.Header {
+		for _, value := range values {
+			awsMapping.TargetDomain.UrlResponse.Headers = append(awsMapping.TargetDomain.UrlResponse.Headers, HttpHeader{
+				Name:  name,
+				Value: value,
+			})
+		}
+	}
 	if requestUrlResponse.Header.Get("Server") == "AmazonS3" {
 		requestUrlResponseEtag := strings.ReplaceAll(requestUrlResponse.Header.Get("ETag"), "\"", "")
 		if requestUrlResponseEtag != "" {
 			log.Println("Request Url Response ETag:", requestUrlResponseEtag)
+			awsMapping.TargetDomain.EtagResponse = requestUrlResponseEtag
 		}
 	}
 
@@ -444,30 +525,47 @@ func do_pipeline(requestUrl string) string {
 	log.Println("Target CloudFront Distribution:", *targetAwsDistribution.Id)
 	if *targetAwsDistribution.WebACLId != "" {
 		log.Println("Target CloudFront Distribution WAF Id:", *targetAwsDistribution.WebACLId)
+		awsMapping.TargetDomain.WafId = *targetAwsDistribution.WebACLId
 	} else {
 		log.Println("Target CloudFront Distribution WAF Id:", "none")
+		awsMapping.TargetDomain.WafId = "none"
 	}
+
 	log.Println("Target Distribution Status:", *targetAwsDistribution.Status)
 	for i, origin := range targetOrigins {
-		log.Println(i, "Origin Name:", origin.originName)
-		log.Println(i, "Origin Url:", origin.originUrl)
+		log.Println(i, "Origin Name:", origin.OriginName)
+		log.Println(i, "Origin Url:", origin.OriginUrl)
 		originUrlResponse := origin.getOriginUrlResponse()
-		log.Println("Origin Response:")
-		log.Println(i, "[", originUrlResponse.StatusCode, "]", originUrlResponse.Header)
-
-		if origin.originResourceExists && strings.HasPrefix(origin.originType, "s3-") {
-			if origin.originIndexETag != "" {
-				log.Println(i, "Origin ETag:", origin.originIndexETag)
-			}
-			log.Println(i, "Is Resource Exists:", origin.originResourceExists)
-			log.Println(i, "Is Website:", origin.originIsWebsite)
-			log.Println(i, "Is Bucket Public:", origin.originBucketPolicyIsPublic)
-			log.Println(i, "Origin Bucket Policy:", *origin.originBucketPolicy.Policy)
+		targetOrigins[i].setOriginUrlResponse(originUrlResponse)
+		var bucketPolicy PolicyDocument
+		policyBlob := []byte(targetOrigins[i].originBucketPolicy)
+		err := json.Unmarshal(policyBlob, &bucketPolicy)
+		if err != nil {
+			log.Println(err)
 		}
+		targetOrigins[i].OriginBucketPolicy = bucketPolicy
+		// log.Println("Origin Response:")
+		// log.Println(i, "[", originUrlResponse.StatusCode, "]", originUrlResponse.Header)
+		// if origin.OriginResourceExists && strings.HasPrefix(origin.OriginType, "s3-") {
+		// 	if origin.OriginIndexETag != "" {
+		// 		log.Println(i, "Origin ETag:", origin.OriginIndexETag)
+		// 	}
+		// 	log.Println(i, "Is Resource Exists:", origin.OriginResourceExists)
+		// 	log.Println(i, "Is Website:", origin.OriginIsWebsite)
+		// 	log.Println(i, "Is Bucket Public:", origin.OriginBucketPolicyIsPublic)
+		// 	log.Println(i, "Origin Bucket Policy:", origin.originBucketPolicy)
+		// }
+
 	}
-	route53Records := getRoute53Record(requestUrl, domainName)
-	log.Println("Route53 record:", route53Records)
-	return *targetAwsDistribution.DomainName
+	route53Record := getRoute53Record(requestUrl, domainName)
+	log.Println("Route53 record:", route53Record)
+	awsMapping.TargetDomain.Route53Record = route53Record
+	awsMapping.CloudFrontOrigins = targetOrigins
+	b, err := json.Marshal(awsMapping)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	return string(b)
 }
 
 func main() {
@@ -475,9 +573,11 @@ func main() {
 	r.GET("/explore", func(c *gin.Context) {
 		requestUrl := c.Query("requestUrl")
 		response := do_pipeline(requestUrl)
-		c.JSON(200, gin.H{
-			"message": response,
-		})
+		c.Header("Content-Type", "application/json; charset=utf-8")
+		c.Data(200, "application/json; charset=utf-8", []byte(response))
+		// c.JSON(200, gin.H{
+		// 	"body": response,
+		// })
 	})
 	r.Run(":8080") // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
 
