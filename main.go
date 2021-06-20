@@ -20,6 +20,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/cloudfront/types"
 	"github.com/aws/aws-sdk-go-v2/service/route53"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/gin-gonic/gin"
 	"github.com/miekg/dns"
 )
 
@@ -333,10 +334,11 @@ func getRoute53Record(requestUrl string, domainName string) string {
 	svc := route53.NewFromConfig(cfg)
 	resp, err := svc.ListHostedZonesByName(context.TODO(), &params)
 	if err != nil {
-		log.Fatalln(err)
+		log.Println(err)
+		return "none"
 	}
 
-	if strings.Contains(*resp.HostedZones[0].Name, registeredDomainName) {
+	if len(resp.HostedZones) == 1 && strings.Contains(*resp.HostedZones[0].Name, registeredDomainName) {
 		hostedZoneId := resp.HostedZones[0].Id
 		params := route53.ListResourceRecordSetsInput{
 			HostedZoneId: hostedZoneId,
@@ -356,12 +358,26 @@ func getRoute53Record(requestUrl string, domainName string) string {
 	return "none"
 }
 
-func main() {
+type RequestUrlResponse struct {
+	statusCode int
+	body       string
+	headers    http.Header
+}
+
+type ColumbusOutput struct {
+	awsRegion        string
+	requestUrl       string
+	domainName       string
+	registeredDomain string
+	targetIpAddress  string
+}
+
+func do_pipeline(requestUrl string) string {
 	// TODO: set as env var
 	awsRegion := "eu-west-1"
 	dnsServer = "1.1.1.1:53" // Using Google's DNS Server
-	var requestUrl string
-	if os.Getenv("COLUMBUS_REQUEST_URL") != "" {
+
+	if requestUrl == "" && os.Getenv("COLUMBUS_REQUEST_URL") != "" {
 		// export COLUMBUS_REQUEST_URL=https://dev.sokker.info
 		requestUrl = os.Getenv("COLUMBUS_REQUEST_URL")
 	}
@@ -371,6 +387,8 @@ func main() {
 	} else {
 		indexFilePath = "index.html"
 	}
+
+	log.Println("Request URL:", requestUrl)
 
 	// Find Target Service - CLOUDFRONT, S3, API_GATEWAY, EC2
 	awsIpRangesFilePath := ".ip-ranges.json"
@@ -436,10 +454,11 @@ func main() {
 		originUrlResponse := origin.getOriginUrlResponse()
 		log.Println("Origin Response:")
 		log.Println(i, "[", originUrlResponse.StatusCode, "]", originUrlResponse.Header)
-		if origin.originIndexETag != "" {
-			log.Println(i, "Origin ETag:", origin.originIndexETag)
-		}
-		if strings.HasPrefix(origin.originType, "s3-") {
+
+		if origin.originResourceExists && strings.HasPrefix(origin.originType, "s3-") {
+			if origin.originIndexETag != "" {
+				log.Println(i, "Origin ETag:", origin.originIndexETag)
+			}
 			log.Println(i, "Is Resource Exists:", origin.originResourceExists)
 			log.Println(i, "Is Website:", origin.originIsWebsite)
 			log.Println(i, "Is Bucket Public:", origin.originBucketPolicyIsPublic)
@@ -448,4 +467,18 @@ func main() {
 	}
 	route53Records := getRoute53Record(requestUrl, domainName)
 	log.Println("Route53 record:", route53Records)
+	return *targetAwsDistribution.DomainName
+}
+
+func main() {
+	r := gin.Default()
+	r.GET("/explore", func(c *gin.Context) {
+		requestUrl := c.Query("requestUrl")
+		response := do_pipeline(requestUrl)
+		c.JSON(200, gin.H{
+			"message": response,
+		})
+	})
+	r.Run(":8080") // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
+
 }
