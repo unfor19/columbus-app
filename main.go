@@ -207,14 +207,26 @@ type CloudFrontOrigin struct {
 }
 
 func (o CloudFrontOrigin) getOriginUrlResponse() http.Response {
+	var resp http.Response
 	if strings.ContainsAny(o.OriginType, "s3") {
+		log.Println("s3", o.OriginUrl)
 		resp, err := http.Get("http://" + o.OriginUrl)
 		if err != nil {
 			log.Println(err)
 		}
 		return *resp
+	} else if strings.ContainsAny(o.OriginUrl, "execute-api") {
+		log.Println("apigw", o.OriginUrl)
+		resp, err := http.Get("https://" + o.OriginUrl + "/" + o.OriginPath)
+		if err != nil {
+			log.Println(err)
+		}
+		return *resp
+	} else {
+		log.Println("unknown", o.OriginUrl)
+		log.Fatalln("Unknown origin type", o.OriginType)
 	}
-	return http.Response{}
+	return resp
 }
 
 func (o *CloudFrontOrigin) setOriginUrlResponse(resp http.Response) {
@@ -322,12 +334,13 @@ func getAwsCloudfrontOrigins(distribution types.DistributionSummary) []CloudFron
 	for _, origin := range distribution.Origins.Items {
 		o := CloudFrontOrigin{}
 		o.OriginPath = *origin.OriginPath
+		o.OriginUrl = *origin.DomainName
+		log.Println("Origin Domain Name", o.OriginUrl)
 		if origin.S3OriginConfig != nil {
 			s3BucketName := strings.Split(*origin.DomainName, fmt.Sprintf(".s3.%s.", cfg.Region))[0]
 			log.Println("Target Origin is S3 Bucket:", s3BucketName)
 			o.OriginType = "s3-bucket"
 			o.OriginName = s3BucketName
-			o.OriginUrl = *origin.DomainName
 			if s3BucketExists(o.OriginName) {
 				o.setOriginPolicy()
 				o.setIndexETag(indexFilePath)
@@ -336,12 +349,11 @@ func getAwsCloudfrontOrigins(distribution types.DistributionSummary) []CloudFron
 				o.OriginResourceExists = true
 			}
 			origins = append(origins, o)
-		} else if strings.Contains(aws.ToString(origin.DomainName), "s3-website") {
-			log.Println("Target Origin is S3 Website:", *origin.DomainName)
+		} else if origin.CustomOriginConfig != nil && strings.Contains(aws.ToString(origin.DomainName), "s3-website") {
+			log.Println("Target Origin is S3 Website:", o.OriginUrl)
 			o.OriginType = "s3-website"
-			s3BucketName := strings.Split(*origin.DomainName, ".s3-website.")[0]
+			s3BucketName := strings.Split(o.OriginUrl, ".s3-website.")[0]
 			o.OriginName = s3BucketName
-			o.OriginUrl = *origin.DomainName
 			if s3BucketExists(o.OriginName) {
 				o.setOriginPolicy()
 				o.setIndexETag(indexFilePath)
@@ -349,32 +361,37 @@ func getAwsCloudfrontOrigins(distribution types.DistributionSummary) []CloudFron
 				o.setIsBucketWebsite()
 				o.OriginResourceExists = true
 			}
+			origins = append(origins, o)
+		} else if strings.ContainsAny(aws.ToString(origin.DomainName), ".execute-api.") {
+			log.Println("Target Origin is API Gateway type REST:", o.OriginUrl)
+			o.OriginType = "apigw"
+			apigwName := strings.Split(o.OriginUrl, ".execute-api.")[0]
+			o.OriginName = apigwName
 			origins = append(origins, o)
 		}
-		//  else if strings.Contains(aws.ToString(origin.DomainName), "execute-api") {
-		// 	log.Println("Target Origin is API Gateway type REST:", *origin.DomainName)
-		// 	originTypes = append(originTypes, "apigw-rest")
-		// }
 	}
 	return origins
 }
 
 func getTargetAwsCloudfrontDistribution(distributions []types.DistributionSummary, domainName string) (types.DistributionSummary, []CloudFrontOrigin) {
-	for _, distribution := range distributions {
-		if *distribution.DomainName == domainName {
-			// Try with CNAME
-			log.Println("Found by CNAME:", *distribution.DomainName)
-			return distribution, getAwsCloudfrontOrigins(distribution)
-		}
-	}
+	// for _, distribution := range distributions {
+	// 	log.Println(*distribution.DomainName, domainName)
+	// 	for _, a := range distribution.Aliases.Items {
+	// 		if a == domainName {
+	// 			// Try with CNAME
+	// 			log.Println("Found by CNAME:", *distribution.DomainName)
+	// 			return distribution, getAwsCloudfrontOrigins(distribution)
+	// 		}
+	// 	}
+	// }
 
 	for _, distribution := range distributions {
 		// Search by origins
 		origins := getAwsCloudfrontOrigins(distribution)
 		for _, o := range origins {
-			if strings.HasPrefix(o.OriginUrl, domainName) {
+			if strings.HasPrefix(o.OriginUrl, domainName) || strings.Contains(o.OriginUrl, ".execute-api.") {
 				log.Println("Found CloudFront Distribution,", *distribution.Id, *distribution.DomainName, "by Origin", o.OriginName)
-				return distribution, getAwsCloudfrontOrigins(distribution)
+				return distribution, origins
 			}
 		}
 	}
@@ -533,6 +550,7 @@ func do_pipeline(requestUrl string) string {
 
 	log.Println("Target Distribution Status:", *targetAwsDistribution.Status)
 	for i, origin := range targetOrigins {
+		log.Println(i, "Origin Type:", origin.OriginType)
 		log.Println(i, "Origin Name:", origin.OriginName)
 		log.Println(i, "Origin Url:", origin.OriginUrl)
 		originUrlResponse := origin.getOriginUrlResponse()
