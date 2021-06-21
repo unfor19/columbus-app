@@ -68,6 +68,7 @@ type TargetAttributes struct {
 	EtagResponse    string
 	Route53Record   string
 	WafId           string
+	NsLookup        []string
 }
 
 type AwsMapping struct {
@@ -577,6 +578,14 @@ func do_pipeline(requestUrl string) string {
 	}
 	route53Record := getRoute53Record(requestUrl, domainName)
 	log.Println("Route53 record:", route53Record)
+	ips, err := net.LookupIP(domainName + ".")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Could not get IPs: %v\n", err)
+		os.Exit(1)
+	}
+	for _, ip := range ips {
+		awsMapping.TargetDomain.NsLookup = append(awsMapping.TargetDomain.NsLookup, domainName+"."+" IN A "+ip.String()+"\n")
+	}
 	awsMapping.TargetDomain.Route53Record = route53Record
 	awsMapping.CloudFrontOrigins = targetOrigins
 	b, err := json.Marshal(awsMapping)
