@@ -19,11 +19,11 @@ jobs:
     steps:
       - uses: actions/checkout@master
       - name: compile and release
-        uses: wangyoucao577/go-release-action@v1.18 # unfor19/go-release.action@master
+        uses: unfor19/go-release.action@master
         env:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          goarch: ${{ matrix.GOARCH }}
-          goos: linux
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GOARCH: ${{ matrix.GOARCH }}
+          GOOS: linux
 
   release-macos-binaries:
     name: macos-darwin
@@ -36,11 +36,11 @@ jobs:
     steps:
       - uses: actions/checkout@master
       - name: compile and release
-        uses: wangyoucao577/go-release-action@v1.18 # unfor19/go-release.action@master
+        uses: unfor19/go-release.action@master
         env:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          goarch: ${{ matrix.GOARCH }}
-          goos: darwin
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GOARCH: ${{ matrix.GOARCH }}
+          GOOS: darwin
 
   release-windows-binaries:
     name: windows
@@ -53,8 +53,8 @@ jobs:
     steps:
       - uses: actions/checkout@master
       - name: compile and release
-        uses: wangyoucao577/go-release-action@v1.18 # unfor19/go-release.action@master
+        uses: unfor19/go-release.action@master
         env:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          goarch: ${{ matrix.GOARCH }}
-          goos: windows
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GOARCH: ${{ matrix.GOARCH }}
+          GOOS: windows
