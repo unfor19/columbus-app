@@ -26,7 +26,7 @@ jobs:
           GOOS: linux
 
   release-macos-binaries:
-    name: macos-darwin
+    name: linux # macos-darwin
     runs-on: ubuntu-20.04
     strategy:
       matrix:
@@ -43,7 +43,7 @@ jobs:
           GOOS: darwin
 
   release-windows-binaries:
-    name: windows
+    name: linux # windows
     runs-on: ubuntu-20.04
     strategy:
       matrix:
