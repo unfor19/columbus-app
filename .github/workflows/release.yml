@@ -21,7 +21,7 @@ jobs:
       - name: compile and release
         uses: wangyoucao577/go-release-action@v1.18 # unfor19/go-release.action@master
         env:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{ secrets.GH_TOKEN }}
           goarch: ${{ matrix.GOARCH }}
           goos: linux
 
@@ -38,7 +38,7 @@ jobs:
       - name: compile and release
         uses: wangyoucao577/go-release-action@v1.18 # unfor19/go-release.action@master
         env:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{ secrets.GH_TOKEN }}
           goarch: ${{ matrix.GOARCH }}
           goos: darwin
 
@@ -55,6 +55,6 @@ jobs:
       - name: compile and release
         uses: wangyoucao577/go-release-action@v1.18 # unfor19/go-release.action@master
         env:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{ secrets.GH_TOKEN }}
           goarch: ${{ matrix.GOARCH }}
           goos: windows
