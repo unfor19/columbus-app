@@ -103,3 +103,16 @@ Services that will be supported in the future
    ```bash
    git push --set-upstream origin feature/awesome
    ```
+
+## References
+
+- [AWS Code Samples for Go](https://docs.aws.amazon.com/code-samples/latest/catalog/code-catalog-go.html)
+
+
+## Authors
+
+Created and maintained by [Meir Gabay](https://github.com/unfor19)
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](https://github.com/unfor19/columbus-app/blob/master/LICENSE) file for details
