@@ -19,7 +19,7 @@ jobs:
     steps:
       - uses: actions/checkout@master
       - name: compile and release
-        uses: wangyoucao577/go-release-action@v1.18 # unfor19/go-release.action@master
+        uses: unfor19/go-release.action@master
         env:
           github_token: ${{ secrets.GH_TOKEN }}
           goarch: ${{ matrix.GOARCH }}
@@ -36,7 +36,7 @@ jobs:
     steps:
       - uses: actions/checkout@master
       - name: compile and release
-        uses: wangyoucao577/go-release-action@v1.18 # unfor19/go-release.action@master
+        uses: unfor19/go-release.action@master
         env:
           github_token: ${{ secrets.GH_TOKEN }}
           goarch: ${{ matrix.GOARCH }}
@@ -53,7 +53,7 @@ jobs:
     steps:
       - uses: actions/checkout@master
       - name: compile and release
-        uses: wangyoucao577/go-release-action@v1.18 # unfor19/go-release.action@master
+        uses: unfor19/go-release.action@master
         env:
           github_token: ${{ secrets.GH_TOKEN }}
           goarch: ${{ matrix.GOARCH }}
