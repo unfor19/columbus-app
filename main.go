@@ -606,6 +606,12 @@ func main() {
 		// 	"body": response,
 		// })
 	})
+
+	r.GET("/", func(c *gin.Context) {
+		response := "Use the following query http://localhost:8080/explore?requestUrl=https://dev.api.sokker.info"
+		c.Header("Content-Type", "text/plain; charset=utf-8")
+		c.Data(200, "Content-Type: text/plain; charset=utf-8", []byte(response))
+	})
 	r.Run(":8080") // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
 
 }
