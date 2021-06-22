@@ -1,5 +1,7 @@
 # columbus-app
 
+[![Release Binaries](https://github.com/unfor19/columbus-app/actions/workflows/release.yml/badge.svg)](https://github.com/unfor19/columbus-app/actions/workflows/release.yml)
+
 ## Requirements
 
 - AWS Account and [User with AdministratorAccess](https://docs.aws.amazon.com/IAM/latest/UserGuide/getting-started_create-admin-group.html)
