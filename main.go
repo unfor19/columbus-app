@@ -295,7 +295,6 @@ func (o *CloudFrontOrigin) setIsBucketWebsite() {
 	}
 	resp, err := svc.GetBucketWebsite(context.TODO(), &params)
 	if err != nil {
-		// log.Println(err)
 		isWebsite = false
 	} else {
 		isWebsite = resp.ResultMetadata.Has("IndexDocument")
@@ -375,17 +374,6 @@ func getAwsCloudfrontOrigins(distribution types.DistributionSummary) []CloudFron
 }
 
 func getTargetAwsCloudfrontDistribution(distributions []types.DistributionSummary, domainName string) (types.DistributionSummary, []CloudFrontOrigin) {
-	// for _, distribution := range distributions {
-	// 	log.Println(*distribution.DomainName, domainName)
-	// 	for _, a := range distribution.Aliases.Items {
-	// 		if a == domainName {
-	// 			// Try with CNAME
-	// 			log.Println("Found by CNAME:", *distribution.DomainName)
-	// 			return distribution, getAwsCloudfrontOrigins(distribution)
-	// 		}
-	// 	}
-	// }
-
 	for _, distribution := range distributions {
 		// Search by origins
 		origins := getAwsCloudfrontOrigins(distribution)
