@@ -2,9 +2,9 @@ name: Release Binaries
 
 on:
   release:
-    types: [published]
+    types: [published] # does not include pre-release
   push:
-    branches: [master]
+    branches: [master] # creates a pre-release
 
 jobs:
   release-linux-binaries:
