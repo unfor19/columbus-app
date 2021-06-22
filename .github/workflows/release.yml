@@ -49,7 +49,7 @@ jobs:
       matrix:
         include:
           - GOARCH: "amd64"
-          - GOARCH: "386"
+          # - GOARCH: "386"
     steps:
       - uses: actions/checkout@master
       - name: compile and release
