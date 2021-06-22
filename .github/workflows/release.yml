@@ -2,7 +2,7 @@ name: Release Binaries
 
 on:
   release:
-    types: [published] # does not include pre-release
+    types: [released] # does not include pre-release
   push:
     branches: [master] # creates a pre-release
 
