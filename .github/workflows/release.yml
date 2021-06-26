@@ -1,10 +1,12 @@
 name: Release Binaries
 
 on:
-  release:
-    types: [released] # does not include pre-release
   push:
-    branches: [master] # creates a pre-release
+    branches: [nowhere]
+  # release:
+  #   types: [released] # does not include pre-release
+  # push:
+  #   branches: [master] # creates a pre-release
 
 jobs:
   release-linux-binaries:
