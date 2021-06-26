@@ -21,11 +21,11 @@ jobs:
           path: |
             ~/.cache/go-build
             ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-go-${{ hashFiles('go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
       - name: Get Dependencies
-        if: steps.cache-go-modules.outputs.cache-hit != 'true'
+        # if: steps.cache-go-modules.outputs.cache-hit != 'true'
         uses: unfor19/release-action/golang/1.16@master
         env:
           GOARCH: ${{ matrix.GOARCH }}
