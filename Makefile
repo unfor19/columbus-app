@@ -1,5 +1,5 @@
 deps:
-	go get
+	go mod download
 
 build:
 	go build
