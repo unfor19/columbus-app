@@ -1,0 +1,54 @@
+name: Build Binaries
+
+on:
+  push:
+    branches: [master]
+
+jobs:
+  build-linux-binaries:
+    name: linux
+    runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        include:
+          - GOARCH: "amd64"
+    steps:
+      - uses: actions/checkout@master
+      - name: Cache Go Modules
+        id: cache-go-modules
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('golang/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+      - name: Get Dependencies
+        if: steps.cache-go-modules.outputs.cache-hit != 'true'
+        uses: unfor19/release-action/golang/1.16@master
+        env:
+          GOARCH: ${{ matrix.GOARCH }}
+          GOOS: linux
+        with:
+          lang-name: golang
+          lang-version: 1.16
+          action: dependencies
+      - name: build
+        uses: unfor19/release-action/golang/1.16@master
+        env:
+          GOARCH: ${{ matrix.GOARCH }}
+          GOOS: linux
+        with:
+          lang-name: golang
+          lang-version: 1.16
+          action: build
+      # - name: test
+      #   uses: unfor19/release-action/golang/1.16@master
+      #   env:
+      #     GOARCH: ${{ matrix.GOARCH }}
+      #     GOOS: linux
+      #   with:
+      #     lang-name: golang
+      #     lang-version: 1.16
+      #     action: test
