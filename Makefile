@@ -1,5 +1,5 @@
 deps:
-	go mod download
+	go mod download -json
 
 build:
 	go build
