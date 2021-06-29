@@ -19,8 +19,8 @@ jobs:
         uses: actions/cache@v2
         with:
           path: |
-            ${GITHUB_WORKSPACE}/.cache-modules
-            ${GITHUB_WORKSPACE}/.cache-go-build
+            .cache-modules
+            .cache-go-build
           key: ${{ runner.os }}-go-${{ matrix.GOARCH }}-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-${{ matrix.GOARCH }}
