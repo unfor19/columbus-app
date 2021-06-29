@@ -2,7 +2,9 @@ name: Build Binaries
 
 on:
   push:
-    branches: [master]
+    branches: [master] # creates a pre-release
+  release:
+    types: [released] # does not include pre-release
 
 jobs:
   build-linux-binaries:
@@ -12,6 +14,10 @@ jobs:
       matrix:
         include:
           - GOARCH: "amd64"
+          - GOARCH: "386"
+          - GOARCH: "arm64"
+    env:
+      GOOS: linux
     steps:
       - uses: actions/checkout@master
       - name: Cache Go Build and Modules
@@ -21,7 +27,7 @@ jobs:
           path: |
             .cache-modules
             .cache-go-build
-          key: ${{ runner.os }}-golang-${{ matrix.GOARCH }}-${{ hashFiles('go.sum') }}-1234
+          key: ${{ runner.os }}-golang-${{ matrix.GOARCH }}-${{ hashFiles('golang/go.sum') }}-v1
           restore-keys: |
             ${{ runner.os }}-golang-${{ matrix.GOARCH }}-
       - name: Get Dependencies
@@ -29,26 +35,30 @@ jobs:
         uses: unfor19/release-action/golang/1.16@master
         env:
           GOARCH: ${{ matrix.GOARCH }}
-          GOOS: linux
         with:
           lang-name: golang
           lang-version: 1.16
           action: dependencies
-      - name: Build
+      - name: build
         uses: unfor19/release-action/golang/1.16@master
         env:
           GOARCH: ${{ matrix.GOARCH }}
-          GOOS: linux
         with:
           lang-name: golang
           lang-version: 1.16
           action: build
-      # - name: test
+      # - name: Go Test
       #   uses: unfor19/release-action/golang/1.16@master
-      #   env:
-      #     GOARCH: ${{ matrix.GOARCH }}
-      #     GOOS: linux
       #   with:
       #     lang-name: golang
       #     lang-version: 1.16
       #     action: test
+      - name: Release
+        uses: unfor19/release-action/golang/1.16@master
+        env:
+          GOARCH: ${{ matrix.GOARCH }}
+        with:
+          lang-name: golang
+          lang-version: 1.16
+          action: release
+          gh-token: ${{ secrets.GH_TOKEN }}
