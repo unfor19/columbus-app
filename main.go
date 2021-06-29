@@ -584,6 +584,7 @@ func do_pipeline(requestUrl string) string {
 }
 
 func main() {
+	log.Println("Starting server ...")
 	r := gin.Default()
 	r.GET("/explore", func(c *gin.Context) {
 		requestUrl := c.Query("requestUrl")
