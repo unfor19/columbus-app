@@ -25,7 +25,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-golang-${{ matrix.GOARCH }}-
       - name: Get Dependencies
-        # if: steps.cache-go-modules.outputs.cache-hit != 'true'
+        if: steps.cache-go-modules.outputs.cache-hit != 'true'
         uses: unfor19/release-action/golang/1.16@master
         env:
           GOARCH: ${{ matrix.GOARCH }}
