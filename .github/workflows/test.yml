@@ -7,17 +7,27 @@ on:
     types: [released] # does not include pre-release
 
 jobs:
-  build-linux-binaries:
-    name: linux
+  build-binaries:
+    name: cicd
     runs-on: ubuntu-20.04
     strategy:
       matrix:
         include:
           - GOARCH: "amd64"
+            GOOS: "linux"
           - GOARCH: "386"
+            GOOS: "linux"
           - GOARCH: "arm64"
+            GOOS: "linux"
+          - GOARCH: "amd64"
+            GOOS: "darwin"
+          - GOARCH: "arm64"
+            GOOS: "darwin"
+          - GOARCH: "amd64"
+            GOOS: "windows"
     env:
-      GOOS: linux
+      GOOS: ${{ matrix.GOOS }}
+      GOARCH: ${{ matrix.GOARCH }}
     steps:
       - uses: actions/checkout@master
       - name: Cache Go Build and Modules
@@ -33,16 +43,12 @@ jobs:
       - name: Get Dependencies
         if: steps.cache-go-modules.outputs.cache-hit != 'true'
         uses: unfor19/release-action/golang/1.16@master
-        env:
-          GOARCH: ${{ matrix.GOARCH }}
         with:
           lang-name: golang
           lang-version: 1.16
           action: dependencies
-      - name: build
+      - name: Go Build
         uses: unfor19/release-action/golang/1.16@master
-        env:
-          GOARCH: ${{ matrix.GOARCH }}
         with:
           lang-name: golang
           lang-version: 1.16
@@ -55,8 +61,6 @@ jobs:
       #     action: test
       - name: Release
         uses: unfor19/release-action/golang/1.16@master
-        env:
-          GOARCH: ${{ matrix.GOARCH }}
         with:
           lang-name: golang
           lang-version: 1.16
