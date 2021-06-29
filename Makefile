@@ -3,7 +3,7 @@ deps:
 
 build:
 	go build
-	@ls -lh "$(PWD)"/columbus-app*
+	@ls -lh columbus-app*
 
 run:
 	go run .
