@@ -21,9 +21,9 @@ jobs:
           path: |
             .cache-modules
             .cache-go-build
-          key: ${{ runner.os }}-gocache-${{ matrix.GOARCH }}-${{ hashFiles('go.sum') }}
+          key: ${{ runner.os }}-golang-${{ matrix.GOARCH }}-${{ hashFiles('go.sum') }}-${GITHUB_SHA}
           restore-keys: |
-            ${{ runner.os }}-gocache-${{ matrix.GOARCH }}-
+            ${{ runner.os }}-golang-${{ matrix.GOARCH }}-
       - name: Get Dependencies
         # if: steps.cache-go-modules.outputs.cache-hit != 'true'
         uses: unfor19/release-action/golang/1.16@master
