@@ -21,7 +21,7 @@ jobs:
           path: |
             .cache-modules
             .cache-go-build
-          key: ${{ runner.os }}-golang-${{ matrix.GOARCH }}-${{ hashFiles('go.sum') }}-${GITHUB_SHA}
+          key: ${{ runner.os }}-golang-${{ matrix.GOARCH }}-${{ hashFiles('go.sum') }}-1234
           restore-keys: |
             ${{ runner.os }}-golang-${{ matrix.GOARCH }}-
       - name: Get Dependencies
