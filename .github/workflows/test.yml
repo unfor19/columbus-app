@@ -14,7 +14,7 @@ jobs:
           - GOARCH: "amd64"
     steps:
       - uses: actions/checkout@master
-      - name: Cache Go Modules
+      - name: Cache Go Build and Modules
         id: cache-go-modules
         uses: actions/cache@v2
         with:
