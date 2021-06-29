@@ -20,7 +20,7 @@ jobs:
         with:
           path: |
             ${GITHUB_WORKSPACE}/.cache-modules
-            ${GITHUB_WORKSPACE}/.cache/go-build
+            ${GITHUB_WORKSPACE}/.cache-go-build
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
