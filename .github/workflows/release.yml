@@ -1,4 +1,4 @@
-name: Build Binaries
+name: Release
 
 on:
   push:
@@ -9,8 +9,8 @@ on:
       - released # does not include pre-release
 
 jobs:
-  build-binaries:
-    name: cicd
+  release:
+    name: Release
     runs-on: ubuntu-20.04
     strategy:
       matrix:
