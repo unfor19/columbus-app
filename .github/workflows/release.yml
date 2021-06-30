@@ -52,25 +52,17 @@ jobs:
         if: steps.cache-go-modules.outputs.cache-hit != 'true'
         uses: unfor19/release-action/golang/1.16@master
         with:
-          lang-name: golang
-          lang-version: 1.16
           action: dependencies
       - name: Go Build
         uses: unfor19/release-action/golang/1.16@master
         with:
-          lang-name: golang
-          lang-version: 1.16
           action: build
       # - name: Go Test
       #   uses: unfor19/release-action/golang/1.16@master
       #   with:
-      #     lang-name: golang
-      #     lang-version: 1.16
       #     action: test
       - name: Release
         uses: unfor19/release-action/golang/1.16@master
         with:
-          lang-name: golang
-          lang-version: 1.16
           action: release
           gh-token: ${{ secrets.GH_TOKEN }}
