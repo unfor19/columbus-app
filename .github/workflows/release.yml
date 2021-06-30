@@ -7,6 +7,12 @@ on:
   release:
     types:
       - released # does not include pre-release
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Branch to set as prerelease"
+        required: false
+        default: "master"
 
 jobs:
   release:
