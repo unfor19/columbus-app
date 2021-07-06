@@ -39,13 +39,13 @@ func GetTargetIPAddress(domainName string, dnsServer string) net.IP {
 	}
 	c := new(dns.Client)
 	in, _, _ := c.Exchange(m1, dnsServer)
-	if len(in.Answer) == 0 {
-		log.Println(in)
-		return nil
+	if len(in.Answer) > 0 {
+		if t, ok := in.Answer[len(in.Answer)-1].(*dns.A); ok {
+			return t.A
+		} else {
+			log.Println(in)
+			return nil
+		}
 	}
-	if t, ok := in.Answer[0].(*dns.A); ok {
-		return t.A
-	} else {
-		return nil
-	}
+	return nil
 }
