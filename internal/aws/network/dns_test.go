@@ -41,7 +41,7 @@ func TestCloudFrontIp(t *testing.T) {
 }
 
 func TestApiGatewayIp(t *testing.T) {
-	r := "https://https://dev.api.sokker.info"
+	r := "https://dev.api.sokker.info"
 	domainName, targetAwsService := testDns(r)
 	if targetAwsService != "CLOUDFRONT" {
 		t.Fatal("Domain name", domainName, "Does not match service type", targetAwsService)
