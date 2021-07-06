@@ -9,8 +9,7 @@ import (
 	"github.com/unfor19/columbus-app/pkg/traffic"
 )
 
-func TestAlbIp(t *testing.T) {
-	r := os.Getenv("REQUEST_URL")
+func testDns(r string) (string, string) {
 	domainName := cdns.GetDomainName(r)
 	dnsServer := "1.1.1.1:53"
 	awsIpRangesFilePath := ".ip-ranges.json"
@@ -30,9 +29,21 @@ func TestAlbIp(t *testing.T) {
 		log.Println("Found AWS ip-ranges.json, skipping download:", awsIpRangesFilePath)
 	}
 
-	targetAwsService := GetTargetAwsService(targetIpAddress.String(), awsIpRangesFilePath)
-	log.Println("Target service:", targetAwsService)
-	if targetAwsService != "EC2" {
+	return domainName, GetTargetAwsService(targetIpAddress.String(), awsIpRangesFilePath)
+}
+
+func TestCloudFrontIp(t *testing.T) {
+	r := "https://dev.sokker.info"
+	domainName, targetAwsService := testDns(r)
+	if targetAwsService != "CLOUDFRONT" {
+		t.Fatal("Domain name", domainName, "Does not match service type", targetAwsService)
+	}
+}
+
+func TestApiGatewayIp(t *testing.T) {
+	r := "https://https://dev.api.sokker.info"
+	domainName, targetAwsService := testDns(r)
+	if targetAwsService != "CLOUDFRONT" {
 		t.Fatal("Domain name", domainName, "Does not match service type", targetAwsService)
 	}
 }
