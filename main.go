@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"net/http"
 	"os"
 	"strings"
 
@@ -24,18 +25,10 @@ var dnsServer string
 var indexFilePath string
 var awsMapping ccloudfront.AwsMapping
 
-type ColumbusOutput struct {
-	awsRegion        string
-	requestUrl       string
-	domainName       string
-	registeredDomain string
-	targetIpAddress  string
-}
-
 func do_pipeline(requestUrl string) string {
 	// TODO: set as env var
 	awsRegion := "eu-west-1"
-	dnsServer = "1.1.1.1:53" // Using Google's DNS Server
+	dnsServer = "1.1.1.1:53" // Using Cloudflare's DNS Server
 
 	if requestUrl == "" && os.Getenv("COLUMBUS_REQUEST_URL") != "" {
 		// export COLUMBUS_REQUEST_URL=https://dev.sokker.info
@@ -146,18 +139,22 @@ func do_pipeline(requestUrl string) string {
 	return string(b)
 }
 
+func getExplore(c *gin.Context) {
+	requestUrl := c.Query("requestUrl")
+	response := do_pipeline(requestUrl)
+	c.Header("Content-Type", "application/json; charset=utf-8")
+	c.Data(http.StatusOK, "application/json; charset=utf-8", []byte(response))
+	awsMapping = ccloudfront.AwsMapping{}
+}
+
 func main() {
 	log.Println("Starting server ...")
+	if os.Getenv("GO_GIN_DEBUG") != "true" {
+		gin.SetMode(gin.ReleaseMode)
+	}
+
 	r := gin.Default()
-	r.GET("/explore", func(c *gin.Context) {
-		requestUrl := c.Query("requestUrl")
-		response := do_pipeline(requestUrl)
-		c.Header("Content-Type", "application/json; charset=utf-8")
-		c.Data(200, "application/json; charset=utf-8", []byte(response))
-		// c.JSON(200, gin.H{
-		// 	"body": response,
-		// })
-	})
+	r.GET("/explore", getExplore)
 
 	r.GET("/", func(c *gin.Context) {
 		response := "Use the following query http://localhost:8080/explore?requestUrl=https://dev.api.sokker.info"
@@ -165,5 +162,4 @@ func main() {
 		c.Data(200, "Content-Type: text/plain; charset=utf-8", []byte(response))
 	})
 	r.Run(":8080") // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
-
 }
